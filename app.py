@@ -80,11 +80,38 @@ def loading_status():
 
 @app.route('/detect', methods=['POST'])
 def detect():
-    global current_model, camera_on, input_source, cap, is_image, results_store
+    global current_model, camera_on, input_source, cap, is_image, results_store, cameras  # 引入 cameras 为全局变量
     model_version = request.form.get('version')
     model_choice = request.form.get('model')
     input_type = request.form.get('input_type')
     tensorrt_enabled = request.form.get('tensorrt') == 'true'  # Check TensorRT option
+    camera_indexes = request.form.get('camera_index')  # 获取用户输入的摄像头索引或RTSP流
+
+    cameras = []  # 将 cameras 初始化为全局变量
+    if camera_indexes:
+        camera_indexes = camera_indexes.split(',')
+        camera_indexes = [index.strip() for index in camera_indexes]
+
+        for index in camera_indexes:
+            try:
+                # 如果是数字索引，转换为整数并尝试打开摄像头
+                index = int(index)
+                cap = cv2.VideoCapture(index)
+                if cap.isOpened():
+                    cameras.append(cap)
+                else:
+                    return jsonify({'error': f'Failed to open camera {index}'})
+            except ValueError:
+                # 处理RTSP流地址
+                cap = cv2.VideoCapture(index)
+                if cap.isOpened():
+                    cameras.append(cap)
+                else:
+                    return jsonify({'error': f'Failed to open RTSP stream {index}'})
+    if not cameras:  # 如果没有摄像头输入，则返回错误
+        return jsonify({'error': 'No cameras selected or detected'})
+
+    camera_on = True
 
     if model_choice == 'custom':
         # 用户选择了自定义模型
@@ -164,27 +191,44 @@ def detect():
             cap = cv2.VideoCapture(input_source)
             return jsonify({'video': True})
     elif input_type == 'webcam':
-        input_source = 0
+        # 处理多个摄像头输入
+        cameras = []  # 保证 cameras 为全局变量
+        for index in camera_indexes:
+            try:
+                # 如果是数字索引，转换为整数并尝试打开摄像头
+                index = int(index)
+                cap = cv2.VideoCapture(index)
+                if cap.isOpened():
+                    cameras.append(cap)
+                else:
+                    return jsonify({'error': f'Failed to open camera {index}'})
+            except ValueError:
+                # 处理RTSP流地址
+                cap = cv2.VideoCapture(index)
+                if cap.isOpened():
+                    cameras.append(cap)
+                else:
+                    return jsonify({'error': f'Failed to open RTSP stream {index}'})
+
         camera_on = True
-        cap = cv2.VideoCapture(input_source)
         return jsonify({'webcam': True})
 
     return jsonify({'error': 'Invalid input type'})
 
+
 @app.route('/stop_camera', methods=['POST'])
 def stop_camera():
-    global camera_on, cap
+    global camera_on
     camera_on = False
-    if cap is not None:
-        cap.release()
-        cap = None
+    release_cameras()  # 释放所有摄像头资源
     return jsonify({'stopped': True})
 
-def generate_frames(model):
+def generate_frames(model, cameras):
     global camera_on, input_source, cap, is_image, fps_value, loading, results_store
     prev_frame_time = 0
     new_frame_time = 0
 
+    # 处理图像输入
     if is_image:
         img = cv2.imread(input_source)
         results = model(img)
@@ -197,6 +241,7 @@ def generate_frames(model):
                 'keypoints': result.keypoints.data.tolist() if result.keypoints else [],
                 'masks': result.masks.data.tolist() if result.masks else [],
                 'names': result.names,
+                'probabilities': result.probs.data.tolist() if result.probs else [],  # 添加probabilities
                 'path': result.path,
             }
         _, buffer = cv2.imencode('.jpg', annotated_frame)
@@ -206,34 +251,70 @@ def generate_frames(model):
         return
 
     while camera_on:
-        success, frame = cap.read()
-        if not success:
-            break
-        new_frame_time = time.time()
-        results = model(frame)
-        loading = 1
-        for result in results:
-            annotated_frame = result.plot()
-            results_store = {
-                'inference_time': result.speed['inference'],
-                'boxes': result.boxes.data.tolist() if result.boxes else [],
-                'keypoints': result.keypoints.data.tolist() if result.keypoints else [],
-                'masks': result.masks.data.tolist() if result.masks else [],
-                'names': result.names,
-                'path': result.path,
-            }
-            fps_value = 1000/result.speed['inference']
-            prev_frame_time = new_frame_time
+        frames = []
+        # 获取每个摄像头的图像
+        for cap in cameras:
+            success, frame = cap.read()
+            if not success:
+                break
+            frames.append(frame)
 
-        _, buffer = cv2.imencode('.jpg', annotated_frame)
-        frame = buffer.tobytes()
-        yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+        if len(frames) == 1:  # 只有一个摄像头时，直接传入该摄像头图像进行推理
+            combined_frame = frames[0]
+            results = model(combined_frame)
+            loading = 1
+            for result in results:
+                annotated_frame = result.plot()
+                results_store = {
+                    'inference_time': result.speed['inference'],
+                    'boxes': result.boxes.data.tolist() if result.boxes else [],
+                    'keypoints': result.keypoints.data.tolist() if result.keypoints else [],
+                    'masks': result.masks.data.tolist() if result.masks else [],
+                    'names': result.names,
+                    'probabilities': result.probs.data.tolist() if result.probs else [],  # 添加probabilities
+                    'path': result.path,
+                }
+                fps_value = 1000/result.speed['inference']
+                prev_frame_time = new_frame_time
+
+            _, buffer = cv2.imencode('.jpg', annotated_frame)
+            frame = buffer.tobytes()
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+
+        elif len(frames) > 1:
+            # 如果有多个摄像头，则进行竖向拼接
+            combined_frame = cv2.vconcat(frames)
+            results = model(combined_frame)
+            loading = 1
+            for result in results:
+                annotated_frame = result.plot()
+                results_store = {
+                    'inference_time': result.speed['inference'],
+                    'boxes': result.boxes.data.tolist() if result.boxes else [],
+                    'keypoints': result.keypoints.data.tolist() if result.keypoints else [],
+                    'masks': result.masks.data.tolist() if result.masks else [],
+                    'names': result.names,
+                    'probabilities': result.probs.data.tolist() if result.probs else [],  # 添加probabilities
+                    'path': result.path,
+                }
+                fps_value = 1000/result.speed['inference']
+                prev_frame_time = new_frame_time
+
+            # 使用 cv2.imencode 编码图像为JPEG格式
+            _, buffer = cv2.imencode('.jpg', annotated_frame)
+            frame = buffer.tobytes()
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+
+        else:
+            break
+
 
 @app.route('/video_feed')
 def video_feed():
     return Response(generate_frames(current_model), mimetype='multipart/x-mixed-replace; boundary=frame')
-
+    
 @app.route('/results')
 def get_results():
     global results_store, fps_value
@@ -242,6 +323,11 @@ def get_results():
         'fps': fps_value,
     }
     return jsonify(results)
+
+# 添加一个新的路由来获取模型版本信息
+@app.route('/model_versions')
+def get_model_versions():
+    return jsonify(model_versions)
 
 if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=5000)
