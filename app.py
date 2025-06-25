@@ -218,9 +218,11 @@ def detect():
 
 @app.route('/stop_camera', methods=['POST'])
 def stop_camera():
-    global camera_on
+    global camera_on, cap
     camera_on = False
-    release_cameras()  # 释放所有摄像头资源
+    if cap is not None:
+        cap.release()
+        cap = None
     return jsonify({'stopped': True})
 
 def generate_frames(model, cameras):
@@ -241,7 +243,6 @@ def generate_frames(model, cameras):
                 'keypoints': result.keypoints.data.tolist() if result.keypoints else [],
                 'masks': result.masks.data.tolist() if result.masks else [],
                 'names': result.names,
-                'probabilities': result.probs.data.tolist() if result.probs else [],  # 添加probabilities
                 'path': result.path,
             }
         _, buffer = cv2.imencode('.jpg', annotated_frame)
@@ -271,7 +272,7 @@ def generate_frames(model, cameras):
                     'keypoints': result.keypoints.data.tolist() if result.keypoints else [],
                     'masks': result.masks.data.tolist() if result.masks else [],
                     'names': result.names,
-                    'probabilities': result.probs.data.tolist() if result.probs else [],  # 添加probabilities
+                    'probabilities': result.probs.data.tolist() if result.probs else [],
                     'path': result.path,
                 }
                 fps_value = 1000/result.speed['inference']
@@ -295,13 +296,12 @@ def generate_frames(model, cameras):
                     'keypoints': result.keypoints.data.tolist() if result.keypoints else [],
                     'masks': result.masks.data.tolist() if result.masks else [],
                     'names': result.names,
-                    'probabilities': result.probs.data.tolist() if result.probs else [],  # 添加probabilities
+                    'probabilities': result.probs.data.tolist() if result.probs else [],
                     'path': result.path,
                 }
                 fps_value = 1000/result.speed['inference']
                 prev_frame_time = new_frame_time
 
-            # 使用 cv2.imencode 编码图像为JPEG格式
             _, buffer = cv2.imencode('.jpg', annotated_frame)
             frame = buffer.tobytes()
             yield (b'--frame\r\n'
@@ -311,10 +311,12 @@ def generate_frames(model, cameras):
             break
 
 
+
 @app.route('/video_feed')
 def video_feed():
-    return Response(generate_frames(current_model), mimetype='multipart/x-mixed-replace; boundary=frame')
-    
+    global cameras
+    return Response(generate_frames(current_model, cameras), mimetype='multipart/x-mixed-replace; boundary=frame')
+
 @app.route('/results')
 def get_results():
     global results_store, fps_value
@@ -323,11 +325,6 @@ def get_results():
         'fps': fps_value,
     }
     return jsonify(results)
-
-# 添加一个新的路由来获取模型版本信息
-@app.route('/model_versions')
-def get_model_versions():
-    return jsonify(model_versions)
 
 if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=5000)
