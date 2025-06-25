@@ -3,299 +3,668 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Run Ultralytics YOLO on NVIDIA Jetson Orin🚀</title>
+    <title>Ultralytics YOLO on NVIDIA Jetson Orin🚀</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <style>
+        :root {
+            --primary-color: #8DC21F;
+            --secondary-color: #1db954;
+            --dark-bg: #1f1f1f;
+            --darker-bg: #171717;
+            --light-text: #f0f0f0;
+            --medium-text: #aab2b5;
+            --card-bg: #2a2a2a;
+            --border-color: #3a3a3a;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
         body {
+            font-family: 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #0a1929 0%, #1a1a2e 100%);
+            color: var(--light-text);
+            min-height: 100vh;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        header {
+            text-align: center;
+            padding: 20px 0 30px;
+            position: relative;
+        }
+        
+        h1 {
+            color: var(--primary-color);
+            font-size: 2.8rem;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px rgba(141, 194, 31, 0.3);
+            position: relative;
+            display: inline-block;
+        }
+        
+        h1:after {
+            content: '';
+            display: block;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, var(--primary-color), transparent);
+            margin-top: 8px;
+        }
+        
+        .subtitle {
+            color: var(--medium-text);
+            font-size: 1.1rem;
+            max-width: 800px;
+            margin: 0 auto 20px;
+            text-align: center;
+        }
+        
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 25px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        .panel {
+            background: var(--dark-bg);
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+            overflow: hidden;
+            flex: 1;
+            min-width: 350px;
+            max-width: 600px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .panel:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5);
+        }
+        
+        .panel-header {
+            background: var(--darker-bg);
+            padding: 18px 25px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .panel-header i {
+            color: var(--primary-color);
+            font-size: 1.4rem;
+        }
+        
+        .panel-header h2 {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: var(--light-text);
+        }
+        
+        .panel-body {
+            padding: 25px;
+        }
+        
+        .form-group {
+            margin-bottom: 22px;
+            position: relative;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 500;
+            color: var(--medium-text);
+            font-size: 0.95rem;
+        }
+        
+        select, input[type="text"], input[type="file"] {
+            width: 100%;
+            padding: 14px 18px;
+            background: #2d2d2d;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: var(--light-text);
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        select:focus, input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(141, 194, 31, 0.2);
+        }
+        
+        select {
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" width="18px" height="18px"><path d="M7 10l5 5 5-5z"/></svg>');
+            background-repeat: no-repeat;
+            background-position: right 15px center;
+            background-size: 18px;
+            appearance: none;
+            -webkit-appearance: none;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        .checkbox-group input {
+            width: auto;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 25px;
+        }
+        
+        button {
+            flex: 1;
+            padding: 16px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.05rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        #startButton {
+            background: linear-gradient(135deg, var(--primary-color), #6ea50d);
+            color: #003A4A;
+        }
+        
+        #startButton:hover {
+            background: linear-gradient(135deg, #7eb317, #5d8a0a);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(141, 194, 31, 0.3);
+        }
+        
+        #stopButton {
+            background: linear-gradient(135deg, #ff4d4d, #cc0000);
+            color: white;
+        }
+        
+        #stopButton:hover {
+            background: linear-gradient(135deg, #e64545, #b30000);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 77, 77, 0.3);
+        }
+        
+        button i {
+            font-size: 1.2rem;
+        }
+        
+        .result-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        
+        .feed-container {
+            position: relative;
+            flex: 1;
+            min-height: 400px;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #feed {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+        
+        .stats-bar {
+            display: flex;
+            justify-content: space-between;
+            background: var(--darker-bg);
+            padding: 14px 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .stat-item {
             display: flex;
             flex-direction: column;
             align-items: center;
-            font-family: 'Roboto', sans-serif;
-            background-color: #f0f0f0;
-            color: #333;
-            margin: 0;
-            padding: 20px;
-        }
-        h1 {
-            color: #8DC21F;
-            font-size: 2.5em;
-            margin-bottom: 20px;
-        }
-        .container {
-            display: flex;
-            justify-content: space-between;
-            width: 100%;
-            max-width: 1200px;
-            flex-wrap: wrap;
-        }
-        .form-container, .result-container {
-            background: #1f1f1f;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
-            margin: 20px;
             flex: 1;
-            min-width: 300px;
         }
-        .form-container {
-            max-width: 400px;
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 5px;
         }
-        label {
-            display: block;
-            margin-top: 15px;
-            font-weight: bold;
-            color: #aab2b5;
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--medium-text);
         }
-        select, input[type="file"] {
-            width: 100%;
-            padding: 12px;
-            margin-top: 8px;
-            border: 1px solid #fffdfd;
-            border-radius: 6px;
-            box-sizing: border-box;
-            background-color: #cecccc;
-            color: #003A4A;
-        }
-        button {
-            background-color: #1db954;
-            color: #003A4A;
-            padding: 12px 20px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-            margin-top: 15px;
-            width: calc(50% - 10px);
-        }
-        button:hover {
-            background-color: #14833b;
-        }
-        #controls {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 20px;
-        }
-        #result img {
-            width: 100%;
-            height: auto;
-            object-fit: contain;
-            margin-top: 15px;
-            border: 1px solid #fffdfd;
+        
+        .results-card {
+            background: var(--card-bg);
             border-radius: 12px;
-            box-shadow: 0 0 15px rgba(44, 44, 44, 0.3);
+            padding: 20px;
+            margin-top: 20px;
+            flex: 1;
+            max-height: 300px;
+            overflow-y: auto;
         }
-        #progress {
-            width: 100%;
-            background-color: #fffdfd;
-            border-radius: 6px;
-            margin-top: 15px;
-            display: none;
-        }
-        #progress-bar {
-            width: 0;
-            height: 20px;
-            background-color: #1db954;
-            border-radius: 6px;
-        }
-        #fps-display {
+        
+        .results-card h3 {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            color: var(--light-text);
             display: flex;
-            justify-content: center;
             align-items: center;
-            color: #ffffff;
-            background-color: #333333;
-            padding: 8px 12px;
-            border-radius: 6px;
-            margin-top: 0px;
+            gap: 10px;
+        }
+        
+        .results-card h3 i {
+            color: var(--primary-color);
+        }
+        
+        .detection-results {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 15px;
+        }
+        
+        .detection-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+        
+        .detection-item:hover {
+            background: rgba(141, 194, 31, 0.1);
+            transform: translateY(-3px);
+        }
+        
+        .class-name {
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+            color: var(--light-text);
+        }
+        
+        .confidence {
+            font-size: 0.9rem;
+            color: var(--medium-text);
+            margin-bottom: 10px;
+        }
+        
+        .confidence-bar {
+            width: 100%;
+            height: 8px;
+            background: #333;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff4d4d, #ffcc00, var(--primary-color));
+            border-radius: 4px;
+        }
+        
+        .coordinates {
+            font-size: 0.8rem;
+            color: var(--medium-text);
+            margin-top: 10px;
             text-align: center;
         }
-        #loading-message {
-            display: none;
-            color: #1db954;
-            font-size: 1.2em;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 10;
+        
+        .no-results {
+            text-align: center;
+            color: var(--medium-text);
+            padding: 20px;
+            font-style: italic;
         }
-        .result-container {
-            position: relative;
+        
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            
+            .panel {
+                max-width: 100%;
+            }
+            
+            h1 {
+                font-size: 2.2rem;
+            }
         }
     </style>
 </head>
 <body>
-    <h1>Run Ultralytics YOLO on NVIDIA Jetson Orin 🚀</h1>
-    <div class="links-container words"></div>
-        <a href="https://github.com/ZhuYaoHui1998/jetson-examples/tree/main/reComputer/scripts/ultralytics-yolo">📰 How-to Guides: Train a YOLO Model, Accelerate with TensorRT, MultiStream Ultralytics Guides</a>
-    </div>
+    <header>
+        <h1><i class="fas fa-robot"></i> Ultralytics YOLO on NVIDIA Jetson Orin</h1>
+        <p class="subtitle">Real-time object detection powered by YOLO models accelerated with TensorRT</p>
+        <p class="subtitle">Contact US: yaohui.zhu@seeed.cc/510677932@qq.com</p>
+        <a href="https://github.com/ZhuYaoHui1998/jetson-examples/tree/main/reComputer/scripts/ultralytics-yolo" class="guide-link">
+            <i class="fas fa-book"></i> How-to Guides: Train a YOLO Model, Accelerate with TensorRT, MultiStream Ultralytics Guides
+        </a>
+    </header>
+    
     <div class="container">
-        <div class="form-container">
-            <form id="uploadForm" enctype="multipart/form-data">
-                <label for="version">Choose YOLO version:</label>
-                <select name="version" id="version">
-                    {% for version in model_versions %}
-                    <option value="{{ version }}">{{ version }}</option>
-                    {% endfor %}
-                </select>
-
-                <label for="model">Choose model:</label>
-                <select name="model" id="model">
-                    <option value="">-- Select model --</option>
-                </select>
-
-                <!-- Custom Model Upload -->
-                <div id="custom-model-upload" style="display: none;">
-                    <label for="custom_model">Upload custom model (.pt file):</label>
-                    <input type="file" name="custom_model" id="custom_model">
-                </div>
-
-                <label for="input_type">Choose input type:</label>
-                <select name="input_type" id="input_type">
-                    <option value="image">Image</option>
-                    <option value="video">Video</option>
-                    <option value="webcam">Webcam</option>
-                </select>
-
-                <div id="upload-controls">
-                    <label for="file">Upload file:</label>
-                    <input type="file" name="file" id="file">
-                </div>
-
-                <label for="tensorrt">Enable TensorRT:</label>
-                <input type="checkbox" name="tensorrt" id="tensorrt">
-            </form>
-
-            <div id="controls">
-                <button id="startButton">Start</button>
-                <button id="stopButton">Stop</button>
+        <div class="panel">
+            <div class="panel-header">
+                <i class="fas fa-cog"></i>
+                <h2>Detection Settings</h2>
             </div>
-
-            <div id="progress">
-                <div id="progress-bar"></div>
+            <div class="panel-body">
+                <form id="uploadForm" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="version"><i class="fas fa-code-branch"></i> YOLO Version</label>
+                        <select name="version" id="version">
+                            <option value="Yolov8">YOLOv8 (Recommended)</option>
+                            <option value="Yolov5">YOLOv5</option>
+                            <option value="Yolov11">YOLOv11</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="model"><i class="fas fa-project-diagram"></i> Model Selection</label>
+                        <select name="model" id="model">
+                            <option value="">-- Select model --</option>
+                        </select>
+                    </div>
+                    
+                    <div id="custom-model-upload" class="form-group" style="display: none;">
+                        <label for="custom_model"><i class="fas fa-file-upload"></i> Custom Model (.pt file)</label>
+                        <input type="file" name="custom_model" id="custom_model">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="input_type"><i class="fas fa-video"></i> Input Source</label>
+                        <select name="input_type" id="input_type">
+                            <option value="image">Image</option>
+                            <option value="video">Video</option>
+                            <option value="webcam" selected>Webcam</option>
+                        </select>
+                    </div>
+                    
+                    <div id="camera-input-container" class="form-group" style="display: block;">
+                        <label for="camera_index"><i class="fas fa-camera"></i> Camera Indexes or RTSP URLs</label>
+                        <input type="text" id="camera_index" placeholder="0, 1 or rtsp://..." value="0">
+                    </div>
+                    
+                    <div id="upload-controls" class="form-group" style="display: none;">
+                        <label for="file"><i class="fas fa-file"></i> Upload File</label>
+                        <input type="file" name="file" id="file">
+                    </div>
+                    
+                    <div class="checkbox-group">
+                        <input type="checkbox" name="tensorrt" id="tensorrt" checked>
+                        <label for="tensorrt">Enable TensorRT Acceleration</label>
+                    </div>
+                </form>
+                
+                <div class="button-group">
+                    <button id="startButton">
+                        <i class="fas fa-play"></i> Start Detection
+                    </button>
+                    <button id="stopButton">
+                        <i class="fas fa-stop"></i> Stop
+                    </button>
+                </div>
             </div>
         </div>
-
-        <div class="result-container">
-            <div id="fps-display">FPS: 0</div>
-            <div id="result"></div>
-            <div id="loading-message">Loading/Converting the model.</div>
+        
+        <div class="panel">
+            <div class="panel-header">
+                <i class="fas fa-chart-line"></i>
+                <h2>Detection Results</h2>
+            </div>
+            <div class="panel-body">
+                <div class="result-container">
+                    <div class="feed-container">
+                        <img id="feed" >
+                    </div>
+                    
+                    <div class="stats-bar">
+                        <div class="stat-item">
+                            <div class="stat-value" id="fps-value">0.00</div>
+                            <div class="stat-label">FPS</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="inference-time">0 ms</div>
+                            <div class="stat-label">Inference</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="detection-count">0</div>
+                            <div class="stat-label">Objects</div>
+                        </div>
+                    </div>
+                    
+                    <div class="results-card">
+                        <h3><i class="fas fa-list"></i> Detected Objects</h3>
+                        <div class="detection-results" id="detection-results">
+                            <div class="no-results">No objects detected yet</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
-        const modelOptions = {{ model_versions | tojson }};
+        // 初始化模型选项
+        let modelOptions = {
+            'Yolov5': ['yolov5nu', 'yolov5su', 'yolov5mu', 'olov5lu', 'yolov5xu'],
+            'Yolov8': [
+                'yolov8n', 'yolov8s', 'yolov8m', 'yolov8l', 'yolov8x',
+                'yolov8n-seg', 'yolov8s-seg', 'yolov8m-seg', 'yolov8l-seg', 'yolov8x-seg',
+                'yolov8n-pose', 'yolov8s-pose', 'yolov8m-pose', 'yolov8l-pose', 'yolov8x-pose'
+            ],
+            'Yolov11': [
+                'yolo11n', 'yolo11s', 'yolo11m', 'yolo11l', 'yolo11x',
+                'yolo11n-seg', 'yolo11s-seg', 'yolo11m-seg', 'yolo11l-seg', 'yolo11x-seg'
+            ]
+        };
 
-        // 当选择 YOLO 版本时，更新模型选项
-        document.getElementById('version').addEventListener('change', function() {
-            const version = this.value;
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化版本选择
+            const versionSelect = document.getElementById('version');
             const modelSelect = document.getElementById('model');
-            modelSelect.innerHTML = '<option value="">-- Select model --</option>';
-
-            const models = modelOptions[version] || [];
-
-            models.forEach(model => {
-                const option = document.createElement('option');
-                option.value = model;
-                option.textContent = model;
-                modelSelect.appendChild(option);
-            });
-
-            // 添加一个 "Custom Model" 选项
-            const customOption = document.createElement('option');
-            customOption.value = 'custom';
-            customOption.textContent = 'Custom Model';
-            modelSelect.appendChild(customOption);
-        });
-
-        document.getElementById('model').addEventListener('change', function() {
-            const customModelUpload = document.getElementById('custom-model-upload');
-            if (this.value === 'custom') {
-                customModelUpload.style.display = 'block';
-            } else {
-                customModelUpload.style.display = 'none';
-            }
-        });
-
-        document.getElementById('input_type').addEventListener('change', function() {
+            const inputTypeSelect = document.getElementById('input_type');
+            const cameraInputContainer = document.getElementById('camera-input-container');
             const uploadControls = document.getElementById('upload-controls');
-            if (this.value === 'webcam') {
-                uploadControls.style.display = 'none';
-            } else {
-                uploadControls.style.display = 'block';
-            }
-        });
-
-        document.getElementById('startButton').addEventListener('click', function() {
-            const formData = new FormData(document.getElementById('uploadForm'));
-            formData.set('input_type', document.getElementById('input_type').value);
-            formData.set('tensorrt', document.getElementById('tensorrt').checked);
-
-            const loadingMessage = document.getElementById('loading-message');
-            loadingMessage.style.display = 'block';
-
-            fetch('/detect', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.image || data.video || data.webcam) {
-                    const resultDiv = document.getElementById('result');
-                    resultDiv.innerHTML = '';
-
-                    if (data.error) {
-                        resultDiv.textContent = data.error;
-                    } else {
-                        const img = document.createElement('img');
-                        img.id = 'feed';
-                        img.src = '/video_feed';
-                        img.alt = 'The first boot may take 30 seconds';
-                        resultDiv.appendChild(img);
-
-                        const fpsDisplay = document.getElementById('fps-display');
-                        setInterval(() => {
-                            fetch('/results')
-                                .then(response => response.json())
-                                .then(data => {
-                                    fpsDisplay.textContent = `FPS: ${data.fps.toFixed(2)}`;
-                                });
-                        }, 1000);
-                        setInterval(() => {
-                            fetch('/loading_status')
-                                .then(response => response.json())
-                                .then(data => {
-                                    if (data.loading === 0) {
-                                        loadingMessage.style.display = 'block';
-                                    } else {
-                                        loadingMessage.style.display = 'none';
-                                    }
-                                });
-                        }, 1000);
+            const customModelUpload = document.getElementById('custom-model-upload');
+            const startButton = document.getElementById('startButton');
+            const stopButton = document.getElementById('stopButton');
+            const feedElement = document.getElementById('feed');
+            const fpsValueElement = document.getElementById('fps-value');
+            const inferenceTimeElement = document.getElementById('inference-time');
+            const detectionCountElement = document.getElementById('detection-count');
+            const detectionResultsElement = document.getElementById('detection-results');
+            
+            // 初始化模型选择
+            updateModelOptions(versionSelect.value);
+            
+            // 监听版本变化
+            versionSelect.addEventListener('change', function() {
+                updateModelOptions(this.value);
+            });
+            
+            // 监听模型选择变化
+            modelSelect.addEventListener('change', function() {
+                customModelUpload.style.display = this.value === 'custom' ? 'block' : 'none';
+            });
+            
+            // 监听输入类型变化
+            inputTypeSelect.addEventListener('change', function() {
+                const isWebcam = this.value === 'webcam';
+                cameraInputContainer.style.display = isWebcam ? 'block' : 'none';
+                uploadControls.style.display = isWebcam ? 'none' : 'block';
+            });
+            
+            // 开始检测按钮事件
+            startButton.addEventListener('click', function() {
+                const cameraIndex = document.getElementById('camera_index').value.trim();
+                
+                // 先停止当前运行的摄像头
+                fetch('/stop_camera', {
+                    method: 'POST'
+                })
+                .then(() => {
+                    const formData = new FormData(document.getElementById('uploadForm'));
+                    formData.set('camera_index', cameraIndex);
+                    
+                    fetch('/detect', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.image || data.video || data.webcam) {
+                            feedElement.src = '/video_feed';
+                            
+                            // 开始更新统计信息
+                            updateStats();
+                        } else if (data.error) {
+                            alert('Error: ' + data.error);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                    });
+                })
+                .catch(error => console.error('Error stopping camera:', error));
+            });
+            
+            // 停止按钮事件
+            stopButton.addEventListener('click', function() {
+                fetch('/stop_camera', {
+                    method: 'POST'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.stopped) {
+                        feedElement.src = '';
+                        // 重置统计信息
+                        fpsValueElement.textContent = '0.00';
+                        inferenceTimeElement.textContent = '0 ms';
+                        detectionCountElement.textContent = '0';
+                        detectionResultsElement.innerHTML = '<div class="no-results">No objects detected yet</div>';
                     }
+                })
+                .catch(error => console.error('Error:', error));
+            });
+            
+            // 更新模型选项函数
+            function updateModelOptions(version) {
+                modelSelect.innerHTML = '<option value="">-- Select model --</option>';
+                
+                const models = modelOptions[version] || [];
+                models.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model;
+                    option.textContent = model;
+                    modelSelect.appendChild(option);
+                });
+                
+                // 添加自定义模型选项
+                const customOption = document.createElement('option');
+                customOption.value = 'custom';
+                customOption.textContent = 'Custom Model';
+                modelSelect.appendChild(customOption);
+            }
+            
+            // 更新统计信息和检测结果
+            function updateStats() {
+                fetch('/results')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.fps) {
+                            fpsValueElement.textContent = data.fps.toFixed(2);
+                        }
+                        
+                        if (data.results && data.results.inference_time) {
+                            inferenceTimeElement.textContent = data.results.inference_time.toFixed(1) + ' ms';
+                        }
+                        
+                        if (data.results && data.results.boxes) {
+                            const detections = data.results.boxes;
+                            detectionCountElement.textContent = detections.length;
+                            
+                            // 更新检测结果
+                            updateDetectionResults(detections, data.results.names);
+                        }
+                    })
+                    .catch(error => console.error('Error fetching results:', error));
+                
+                // 每500毫秒更新一次
+                setTimeout(updateStats, 500);
+            }
+            
+            // 更新检测结果函数
+            function updateDetectionResults(detections, classNames) {
+                if (!detections || detections.length === 0) {
+                    detectionResultsElement.innerHTML = '<div class="no-results">No objects detected</div>';
+                    return;
                 }
-            })
-            .catch(error => console.error('Error:', error));
-        });
-
-        document.getElementById('stopButton').addEventListener('click', function() {
-            fetch('/stop_camera', {
-                method: 'POST'
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.stopped) {
-                    location.reload();
-                }
-            })
-            .catch(error => console.error('Error:', error));
+                
+                let html = '';
+                detections.forEach(det => {
+                    // 检测结果格式: [x1, y1, x2, y2, confidence, class_id]
+                    const x1 = det[0].toFixed(0);
+                    const y1 = det[1].toFixed(0);
+                    const x2 = det[2].toFixed(0);
+                    const y2 = det[3].toFixed(0);
+                    const confidence = (det[4] * 100).toFixed(1);
+                    const classId = det[5];
+                    const className = classNames[classId] || 'object';
+                    
+                    // 计算中心坐标
+                    const centerX = ((parseFloat(x1) + parseFloat(x2)) / 2).toFixed(0);
+                    const centerY = ((parseFloat(y1) + parseFloat(y2)) / 2).toFixed(0);
+                    
+                    html += `
+                    <div class="detection-item">
+                        <div class="class-name">${className}</div>
+                        <div class="confidence">Confidence: ${confidence}%</div>
+                        <div class="confidence-bar">
+                            <div class="confidence-fill" style="width: ${confidence}%"></div>
+                        </div>
+                        <div class="coordinates">x: ${centerX}, y: ${centerY}</div>
+                    </div>
+                    `;
+                });
+                
+                detectionResultsElement.innerHTML = html;
+            }
         });
     </script>
-        <div class="links-container words">
-            <a href="https://github.com/Seeed-Projects/jetson-examples">👀Explore more projects at Jetson-Example</a>
-        </div>
-
-        <div class="links-container words">
-            <b href="https://github.com/Seeed-Projects/jetson-examples">Build with 💖 by Seeed Studio team.</b>
-        </div>
 </body>
 </html>
